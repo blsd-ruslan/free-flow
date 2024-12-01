@@ -1,0 +1,9 @@
+.grid {
+  background-color: #000;
+  display: grid;
+  grid-template-columns: repeat(var(--width), 1fr);
+  grid-template-rows: repeat(var(--height), 1fr);
+  --unit: min(calc(70vh / var(--height)), calc(70vw / var(--width)));
+  -webkit-user-select: none;
+  user-select: none;
+}
