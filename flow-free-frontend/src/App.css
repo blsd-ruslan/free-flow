@@ -88,11 +88,6 @@ button {
 
 button:hover {
   background: linear-gradient(45deg, #3498db, #2980b9);
-  transform: translateY(-2px);
-}
-
-button:active {
-  transform: translateY(1px);
 }
 
 /* Grid Styles */
@@ -109,6 +104,18 @@ button:active {
   background: rgb(109,182,255);
   background: linear-gradient(29deg, rgba(36, 138, 240, 0.541) 0%, rgb(218, 228, 238) 49%, rgba(29, 145, 223, 0.63) 100%);
   box-shadow: 4px 6px 8px rgba(0, 0, 0, 0.199);
+}
+
+.play-stop-button {
+  box-shadow: 4px 6px 8px rgba(0, 0, 0, 0.199);
+}
+
+.play-stop-button:hover {
+  transform: translateY(-2px);
+}
+
+.play-stop-button:active {
+  transform: translateY(1px);
 }
 
 .cell {
@@ -183,8 +190,14 @@ input[type="range"]::-webkit-slider-thumb:hover {
     font-size: 0.9rem;
   }
 
-  select {
+  .selector select {
     font-size: 0.9rem;
     padding: 8px;
+  }
+}
+
+@media screen and (max-width: 550px) {
+  .controls {
+    flex-direction: column;
   }
 }
