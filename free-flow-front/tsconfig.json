@@ -1,8 +1,0 @@
-{
-  "compilerOptions": {
-    "esModuleInterop": true,
-    "lib": ["dom", "dom.iterable", "es2019"],
-    "moduleResolution": "node",
-    "target": "es6"
-  }
-}
