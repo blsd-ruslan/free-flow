@@ -42,39 +42,53 @@ function App() {
         fetchMaps();
     }, []);
 
-    const startSolver = async () => {
-        if (!selectedAlgorithm || !selectedMap) {
-            setError("Please select an algorithm and a map.");
-            return;
-        }
+const startSolver = async () => {
+    if (!selectedAlgorithm || !selectedMap) {
+        setError("Please select an algorithm and a map.");
+        return;
+    }
 
-        try {
-            setLoading(true);
-            setError(null);
-            setSteps([]);
-            setCurrentStepIndex(0);
-            const response = await axios.post(`${API_BASE_URL}/start`, {
-                algorithm: selectedAlgorithm,
-                map: selectedMap,
-            });
+    try {
+        setLoading(true);
+        setError(null);
+        setSteps([]);
+        setCurrentStepIndex(0);
 
-            if (response.data.status === "Solver started") {
-                setGameStarted(true);
-                const intervalId = setInterval(async () => {
+        // Start the solver
+        const response = await axios.post(`${API_BASE_URL}/start`, {
+            algorithm: selectedAlgorithm,
+            map: selectedMap,
+        });
+
+        if (response.data.status === "Solver started") {
+            setGameStarted(true);
+
+            const intervalId = setInterval(async () => {
+                try {
                     const stepsResponse = await axios.get(`${API_BASE_URL}/steps`);
+
+                    if (stepsResponse.data.status === "finished") {
+                        // Stop polling when the game is finished
+                        clearInterval(intervalId);
+                        setLoading(false);
+                    }
+
                     if (stepsResponse.data.steps && stepsResponse.data.steps.length > 0) {
                         setSteps(stepsResponse.data.steps);
-                        setLoading(false);
-                        clearInterval(intervalId);
                     }
-                }, 1000);
-            }
-        } catch (error) {
-            setError("Failed to start the solver.");
-            setLoading(false);
+                } catch (error) {
+                    console.error("Failed to fetch steps:", error);
+                    clearInterval(intervalId); // Stop polling on error
+                    setError("Failed to fetch steps.");
+                    setLoading(false);
+                }
+            }, 3000);
         }
-    };
-
+    } catch (error) {
+        setError("Failed to start the solver.");
+        setLoading(false);
+    }
+};
     const startPlayback = () => {
         if (steps.length === 0) return;
         setIsPlaying(true);
@@ -185,8 +199,8 @@ function App() {
                 <button onClick={startSolver}>Start</button>
             </div>
 
-            {loading ? (
-                <p>Loading...</p>
+            {!gameStarted ? (
+                <p></p>
             ) : (
                 <>
                     {renderGrid()}

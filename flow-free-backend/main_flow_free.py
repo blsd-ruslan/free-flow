@@ -1,3 +1,5 @@
+from collections import deque
+
 from flask import Flask, jsonify, request
 import threading
 from copy import deepcopy
@@ -12,6 +14,7 @@ directions = [(0, -1), (0, 1), (-1, 0), (1, 0)]
 app = Flask(__name__)
 CORS(app)
 
+
 # Shared Game Logic
 class FlowFreeGame:
     def __init__(self, size, pairs):
@@ -21,6 +24,7 @@ class FlowFreeGame:
         self.colors = [pair['color'] for pair in pairs]
         self.color_ids = {color: idx + 1 for idx, color in enumerate(self.colors)}  # Map colors to unique numbers
         self.steps = []
+        self.status = "not_started"
 
         # Place the start and end points
         for pair in pairs:
@@ -32,7 +36,6 @@ class FlowFreeGame:
             self.grid[y2][x2] = color_id
 
     def save_step(self, grid):
-        """Save a step for frontend display."""
         self.steps.append(deepcopy(grid))  # Save the current grid state
 
 
@@ -44,9 +47,11 @@ class FlowFreeSolverDFS:
         self.visited_states_count = 0
 
     def solve(self):
+        self.game.status = "in_progress"
         grid = deepcopy(self.game.grid)
         self.game.save_step(grid)
         if self.dfs(0, grid):
+            self.game.status = "finished"
             return True
         return False
 
@@ -91,41 +96,90 @@ class FlowFreeSolverFC:
         self.visited_states_count = 0
 
     def solve(self):
+        self.game.status = "in_progress"
         grid = deepcopy(self.game.grid)
-        self.game.save_step(grid)
-        return self.forward_check(0, grid)
+        if self.forward_check(0, grid):
+            print("Solution found.")
+            self.game.status = "finished"
+        else:
+            print("No solution exists.")
+        print(f"Number of visited states: {self.visited_states_count}")
 
     def forward_check(self, color_index, grid):
         if color_index == len(self.game.colors):
             return True
 
-        color_id = self.game.color_ids[self.game.colors[color_index]]
-        start = tuple(self.game.pairs[color_index]['start'])
-        end = tuple(self.game.pairs[color_index]['end'])
-        visited = set()
+        color = self.game.colors[color_index]
+        color_id = self.game.color_ids[color]
+        pair = self.game.pairs[color_index]
+        start = tuple(pair['start'])
+        end = tuple(pair['end'])
+        if not self.is_path_possible(start, end, grid):
+            return False
 
+        visited = set()
         return self.fc_connect(start, end, grid, color_id, visited, color_index)
 
     def fc_connect(self, current, end, grid, color_id, visited, color_index):
         if current == end:
-            return self.forward_check(color_index + 1, grid)
+            # Move on to the next color
+            if self.forward_check(color_index + 1, grid):
+                return True
+            else:
+                return False
 
         x, y = current
         visited.add(current)
         self.game.save_step(grid)
+        self.visited_states_count += 1
 
-        for dx, dy in sorted(directions, key=lambda d: abs((x + d[0]) - end[0]) + abs((y + d[1]) - end[1])):
+        moves = [(dx, dy) for dx, dy in directions]
+        moves.sort(key=lambda d: abs((x + d[0]) - end[0]) + abs((y + d[1]) - end[1]))
+
+        for dx, dy in moves:
             nx, ny = x + dx, y + dy
             if 0 <= nx < self.size and 0 <= ny < self.size:
                 if (nx, ny) not in visited and (grid[ny][nx] == 0 or (nx, ny) == end):
                     backup = grid[ny][nx]
                     grid[ny][nx] = color_id
                     self.game.save_step(grid)
-                    if self.fc_connect((nx, ny), end, grid, color_id, visited, color_index):
+                    if self.all_colors_still_feasible(color_index, grid) and self.fc_connect((nx, ny), end, grid,
+                                                                                             color_id, visited,
+                                                                                             color_index):
                         return True
+
                     grid[ny][nx] = backup
                     self.game.save_step(grid)
+
         visited.remove(current)
+        return False
+
+    def all_colors_still_feasible(self, current_color_index, grid):
+        for idx in range(current_color_index + 1, len(self.game.colors)):
+            pair = self.game.pairs[idx]
+            start = tuple(pair['start'])
+            end = tuple(pair['end'])
+            if not self.is_path_possible(start, end, grid):
+                return False
+        return True
+
+    def is_path_possible(self, start, end, grid):
+        """
+        Check if a path is possible from `start` to `end` using a simple BFS
+        without modifying the grid.
+        """
+        queue = deque([start])
+        visited = set()
+        while queue:
+            x, y = queue.popleft()
+            if (x, y) == end:
+                return True
+            visited.add((x, y))
+            for dx, dy in directions:
+                nx, ny = x + dx, y + dy
+                if 0 <= nx < self.size and 0 <= ny < self.size and (nx, ny) not in visited:
+                    if grid[ny][nx] == 0 or (nx, ny) == end:
+                        queue.append((nx, ny))
         return False
 
 
@@ -136,9 +190,15 @@ class FlowFreeSolverReverse:
         self.visited_states_count = 0
 
     def solve(self):
+        self.game.status = "not_started"
         grid = deepcopy(self.game.grid)
         self.game.save_step(grid)
-        return self.reverse_search(0, grid)
+        if self.reverse_search(0, grid):
+            print("Solution found.")
+            self.game.status = "finished"
+        else:
+            print("No solution exists.")
+        print(f"Number of visited states: {self.visited_states_count}")
 
     def reverse_search(self, color_index, grid):
         if color_index == len(self.game.colors):
@@ -292,7 +352,7 @@ def start_solver():
 @app.route('/steps', methods=['GET'])
 def get_steps():
     if game:
-        return jsonify({'steps': game.steps})
+        return jsonify({'steps': game.steps, 'status': game.status})
     return jsonify({'error': 'No game in progress'})
 
 
