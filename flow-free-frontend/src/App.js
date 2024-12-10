@@ -196,7 +196,11 @@ const startSolver = async () => {
                     </select>
                 </div>
 
-                <button onClick={startSolver}>Start</button>
+                <button onClick={() => {
+                    startSolver();
+                    pausePlayback();
+                }}>Start
+                </button>
             </div>
 
             {!gameStarted ? (
