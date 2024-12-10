@@ -143,6 +143,14 @@ class FlowFreeSolverFC:
                     backup = grid[ny][nx]
                     grid[ny][nx] = color_id
                     self.game.save_step(grid)
+
+                    # Check if current path leads to the dead end
+                    if not self.is_path_possible((nx,ny), end, grid):
+                        # print("dead end")
+                        grid[ny][nx] = backup
+                        continue
+
+                    # Check if other remaining pairs are possible to solve (BFS)
                     if self.all_colors_still_feasible(color_index, grid) and self.fc_connect((nx, ny), end, grid,
                                                                                              color_id, visited,
                                                                                              color_index):
